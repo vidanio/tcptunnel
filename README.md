@@ -10,6 +10,14 @@ $ tcptunnel -u <ip:port> -t <ip:port>
 $ tcptunnel -u <ip:port> -t <ip:port> -s
 ```
 
+
+## Compile
+
+cd tcptunnel/src  
+cargo build --release  
+strip -s ../target/release/tcptunnel  
+
+
 ## Status
 
 - [x] UDP -> TCP
