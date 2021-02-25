@@ -111,8 +111,8 @@ impl Opt {
             let elapsed = now.elapsed();
             if elapsed > Duration::from_secs(1) {
                 eprint!(
-                    "bps {:}\r",
-                    (size as f32 / elapsed.as_millis() as f32) * 8000f32
+                    "bitrate={:}kbps\n",
+                    (size as f32 / elapsed.as_millis() as f32) * 8f32
                 );
                 now = Instant::now();
                 size = 0;
@@ -150,8 +150,8 @@ impl Opt {
             let elapsed = now.elapsed();
             if elapsed > Duration::from_secs(1) {
                 eprint!(
-                    "bps {:}\r",
-                    size as f32 / (elapsed.as_millis() * 1000) as f32
+                    "bitrate={:}kbps\n",
+                    (size as f32 / elapsed.as_millis() as f32) * 8f32
                 );
                 now = Instant::now();
             } else {
@@ -246,13 +246,13 @@ async fn main() -> Result<()> {
 
     if !opt.send_tcp {
         eprintln!(
-            "Sending TCP data to UDP {:?} -> {:?}",
+            "Sending TCP => UDP {:?} => {:?}",
             opt.tcp_addr, opt.udp_addr
         );
         opt.tcp_to_udp().await?;
     } else {
         eprintln!(
-            "Sending UDP data to TCP {:?} -> {:?}",
+            "Sending UDP => TCP {:?} => {:?}",
             opt.udp_addr, opt.tcp_addr
         );
         opt.udp_to_tcp().await?;
