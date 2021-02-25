@@ -13,3 +13,9 @@ futures = "0.3"
 structopt = "0.3"
 anyhow = "1.0"
 socket2 = { version = "0.3.17", features = ["reuseport"] }
+
+[profile.release]
+lto = true
+panic = 'abort'
+opt-level = 'z'
+codegen-units = 1
