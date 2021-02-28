@@ -145,7 +145,7 @@ impl Opt {
         let tcp_stream = FramedRead::new(tcp, ChunkDecoder::new(PACKET_SIZE));
         let (udp_sink, _udp_stream) = UdpFramed::new(udp, BytesCodec::new()).split();
         let mut now = Instant::now();
-        let mut size = 0;
+        let mut size: usize = 0;
         let read = tcp_stream.map_ok(move |buf| {
             let elapsed = now.elapsed();
             if elapsed > Duration::from_secs(1) {
@@ -154,6 +154,7 @@ impl Opt {
                     (size as f32 / elapsed.as_millis() as f32) * 8f32
                 );
                 now = Instant::now();
+                size = 0;
             } else {
                 size += buf.len();
             } // println!("sending: {}", String::from_utf8_lossy(&buf));
