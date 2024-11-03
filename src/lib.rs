@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
+use std::os::unix::io::AsRawFd; // Import necesario para obtener el descriptor de archivo
 
 use anyhow::{bail, Context, Result};
 use bytes::Bytes;
@@ -58,6 +59,35 @@ pub fn to_endpoint(s: &str) -> Result<EndPoint> {
                 .transpose()?
                 .unwrap_or(true);
 
+            // Actualización de tos y traffic_class
+            let tos = query
+                .get("tos")
+                .map(|m| {
+                    let s = m.as_ref();
+                    if s.starts_with("0x") {
+                        u8::from_str_radix(&s[2..], 16)
+                    } else {
+                        s.parse::<u8>()
+                    }
+                    .map_err(|e| anyhow::anyhow!("Invalid TOS value: {}", e))
+                })
+                .transpose()?
+                .unwrap_or(0xB8); // Valor predeterminado 0xB8 para IPv4
+
+            let traffic_class = query
+                .get("traffic_class")
+                .map(|m| {
+                    let s = m.as_ref();
+                    if s.starts_with("0x") {
+                        u8::from_str_radix(&s[2..], 16)
+                    } else {
+                        s.parse::<u8>()
+                    }
+                    .map_err(|e| anyhow::anyhow!("Invalid Traffic Class value: {}", e))
+                })
+                .transpose()?
+                .unwrap_or(0x2E); // Valor predeterminado 0x2E para IPv6 (Expedited Forwarding)
+
             EndPoint::Udp(UdpEndPoint {
                 multicast_interface_address,
                 multicast_interface_index,
@@ -66,6 +96,8 @@ pub fn to_endpoint(s: &str) -> Result<EndPoint> {
                 multicast_loop,
                 buffer,
                 addr,
+                tos,
+                traffic_class,
             })
         }
         "stdin" => EndPoint::Stdin(StdioEndPoint { packet_size }),
@@ -94,6 +126,10 @@ pub struct UdpEndPoint {
     pub multicast_loop: bool,
     /// UDP OS buffer size
     pub buffer: Option<usize>,
+    /// TOS for IPv4
+    pub tos: u8,
+    /// Traffic Class for IPv6
+    pub traffic_class: u8,
 }
 
 pub trait EndPointStream {
@@ -136,6 +172,9 @@ impl UdpEndPoint {
                         udp.set_multicast_ttl_v4(ttl)?;
                     }
                 }
+                // Configuración del TOS para IPv4
+                udp.set_tos(self.tos as u32)?;
+
                 udp
             }
             IpAddr::V6(ref addr) => {
@@ -162,6 +201,21 @@ impl UdpEndPoint {
                         udp.set_multicast_hops_v6(hops)?;
                     }
                 }
+                // Configuración del Traffic Class para IPv6 usando setsockopt
+                let tclass = self.traffic_class as libc::c_int;
+                let ret = unsafe {
+                    libc::setsockopt(
+                        udp.as_raw_fd(),
+                        libc::IPPROTO_IPV6,
+                        libc::IPV6_TCLASS,
+                        &tclass as *const _ as *const libc::c_void,
+                        std::mem::size_of_val(&tclass) as libc::socklen_t,
+                    )
+                };
+                if ret != 0 {
+                    return Err(std::io::Error::last_os_error().into());
+                }
+
                 udp
             }
         };
@@ -258,7 +312,7 @@ impl EndPointStream for UdpEndPoint {
         let read = input.map_ok(move |(msg, _addr)| {
             let elapsed = now.elapsed();
             if elapsed > Duration::from_secs(1) {
-                eprint!(
+                eprintln!(
                     "bps {:} last packet size {}\r",
                     (size as f32 / elapsed.as_millis() as f32) * 8000f32,
                     msg.len()
@@ -300,7 +354,7 @@ impl EndPointStream for StdioEndPoint {
         let read = input.map_ok(move |msg| {
             let elapsed = now.elapsed();
             if elapsed > Duration::from_secs(1) {
-                eprint!(
+                eprintln!(
                     "bps {:} last packet size {}\r",
                     (size as f32 / elapsed.as_millis() as f32) * 8000f32,
                     msg.len()
@@ -337,8 +391,8 @@ pub enum EndPoint {
 impl EndPointStream for EndPoint {
     fn make_stream(&self) -> anyhow::Result<Box<dyn Stream<Item = Result<Bytes, std::io::Error>>>> {
         match self {
-            Udp(udp) => udp.make_stream(),
-            Stdin(stdin) => stdin.make_stream(),
+            EndPoint::Udp(udp) => udp.make_stream(),
+            EndPoint::Stdin(stdin) => stdin.make_stream(),
             _ => bail!("Unsupported"),
         }
     }
@@ -346,32 +400,30 @@ impl EndPointStream for EndPoint {
 impl EndPointSink for EndPoint {
     fn make_sink(&self) -> anyhow::Result<Box<dyn Sink<Bytes, Error = std::io::Error>>> {
         match self {
-            Udp(udp) => udp.make_sink(),
-            Stdout(stdout) => stdout.make_sink(),
+            EndPoint::Udp(udp) => udp.make_sink(),
+            EndPoint::Stdout(stdout) => stdout.make_sink(),
             _ => bail!("Unsupported"),
         }
     }
 }
 
-use EndPoint::*;
-#[allow(unreachable_patterns)]
 impl EndPoint {
     pub fn get_addr(&self) -> anyhow::Result<SocketAddr> {
         match self {
-            Udp(udp) => Ok(udp.addr),
+            EndPoint::Udp(udp) => Ok(udp.addr),
             _ => bail!("Not a network endpoint"),
         }
     }
 
     pub fn make_udp_input(&self) -> anyhow::Result<UdpFramed<BytesCodec>> {
         match self {
-            Udp(udp) => udp.make_input(),
+            EndPoint::Udp(udp) => udp.make_input(),
             _ => bail!("Not an udp endpoint"),
         }
     }
     pub fn make_udp_output(&self) -> anyhow::Result<UdpFramed<BytesCodec>> {
         match self {
-            Udp(udp) => udp.make_output(),
+            EndPoint::Udp(udp) => udp.make_output(),
             _ => bail!("Not an udp endpoint"),
         }
     }

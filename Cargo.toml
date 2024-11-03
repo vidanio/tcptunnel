@@ -29,3 +29,4 @@ priority-queue = "1.2.1"
 nix = "0.26"
 speexdsp = { git = "https://github.com/rust-av/speexdsp-rs", branch = "interleaved" }
 pin-project = "1.1.0"
+libc = "0.2"
