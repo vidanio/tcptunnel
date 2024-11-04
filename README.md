@@ -3,6 +3,7 @@
 ## Usage
 
 ``` sh
+# previous install: pkg-config librust-alsa-sys-dev libopus-dev
 # Start the tunnel on the tcp -> udp side
 $ tcptunnel -u <ip:port> -t <ip:port>
 
