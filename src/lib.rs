@@ -57,7 +57,7 @@ pub fn to_endpoint(s: &str) -> Result<EndPoint> {
                 .get("multicast_loop")
                 .map(|m| m.parse())
                 .transpose()?
-                .unwrap_or(true);
+                .unwrap_or(false); // Valor predeterminado IP_MULTICAST_LOOP deshabilitado
 
             // Actualización de tos y traffic_class
             let tos = query
