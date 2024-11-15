@@ -86,7 +86,7 @@ pub fn to_endpoint(s: &str) -> Result<EndPoint> {
                     .map_err(|e| anyhow::anyhow!("Invalid Traffic Class value: {}", e))
                 })
                 .transpose()?
-                .unwrap_or(0x2E); // Valor predeterminado 0x2E para IPv6 (Expedited Forwarding)
+                .unwrap_or(0xB8); // Valor predeterminado 0xB8 para IPv6 (Expedited Forwarding)
 
             EndPoint::Udp(UdpEndPoint {
                 multicast_interface_address,
