@@ -12,10 +12,10 @@ The following uri syntaxes are supported:
   - multicast=[ipv4_interface or ipv6_index]
   - multicast_ttl=<u32> (IPv4-only)
   - multicast_hops=<u32> (IPv6-only)
-  - multicast_loop=<bool>
+  - multicast_loop=<bool> (default disabled)
   - buffer=<usize>
   - tos=<u8> (IPv4-only, default 0xB8)
-  - traffic_class=<u8> (IPv6-only, default 0x2E)
+  - traffic_class=<u8> (IPv6-only, default 0xB8)
 - stdin:// (Only as Input)
   With the following query arguments:
   - packet_size
